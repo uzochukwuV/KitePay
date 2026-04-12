@@ -1,0 +1,132 @@
+const { ethers } = require('ethers');
+
+// Minimal ABI required for operator interactions
+const SwiftVaultABI = [
+  "function settleOnramp(bytes32 orderId, address user, uint256 usdcAmount, uint256 ngnAmount) external",
+  "function settleCheckout(bytes32 orderId, address merchant, uint256 usdcAmount, uint256 ngnAmount) external",
+  "function deployToYield() external",
+  "function recallFromYield(uint256 amount) external",
+  "function liquidBalance() public view returns (uint256)",
+  "function bufferBps() public view returns (uint256)",
+  "event OfframpInitiated(bytes32 indexed orderId, address indexed user, uint256 usdcAmount)"
+];
+
+let vault;
+let operatorWallet;
+
+function getVault() {
+  if (!vault) {
+    const provider = new ethers.JsonRpcProvider(process.env.KITE_RPC_URL || "https://rpc-testnet.gokite.ai");
+    operatorWallet = new ethers.Wallet(process.env.OPERATOR_PRIVATE_KEY, provider);
+    vault = new ethers.Contract(process.env.VAULT_ADDRESS, SwiftVaultABI, operatorWallet);
+  }
+  return vault;
+}
+
+/**
+ * Release USDC from vault to user (onramp settlement)
+ */
+async function settleOnramp(orderId, userAddress, usdcAmount, ngnAmount) {
+  try {
+    const orderIdBytes32 = ethers.id(orderId);
+    
+    // usdcAmount is expected to be a number (e.g. 10.50). We parse it to 6 decimals for USDC
+    const parsedUsdc = ethers.parseUnits(usdcAmount.toString(), 6);
+    
+    console.log(`[KITE] Settling onramp for ${orderId}...`);
+    const tx = await getVault().settleOnramp(
+      orderIdBytes32,
+      userAddress,
+      parsedUsdc,
+      ngnAmount
+    );
+    
+    const receipt = await tx.wait();
+    console.log('[KITE] Onramp settled:', receipt.hash);
+    return receipt.hash;
+  } catch (error) {
+    console.error("[KITE] settleOnramp failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+/**
+ * Release USDC from vault to merchant (checkout settlement)
+ */
+async function settleCheckout(orderId, merchantAddress, usdcAmount, ngnAmount) {
+  try {
+    const orderIdBytes32 = ethers.id(orderId);
+    const parsedUsdc = ethers.parseUnits(usdcAmount.toString(), 6);
+
+    console.log(`[KITE] Settling checkout for ${orderId}...`);
+    const tx = await getVault().settleCheckout(
+      orderIdBytes32,
+      merchantAddress,
+      parsedUsdc,
+      ngnAmount
+    );
+    
+    const receipt = await tx.wait();
+    console.log('[KITE] Checkout settled:', receipt.hash);
+    return receipt.hash;
+  } catch (error) {
+    console.error("[KITE] settleCheckout failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+/**
+ * Deploy idle float to Lucid yield
+ */
+async function deployToYield() {
+  try {
+    const tx = await getVault().deployToYield();
+    const receipt = await tx.wait();
+    console.log('[KITE] Deployed to yield:', receipt.hash);
+    return receipt.hash;
+  } catch (error) {
+    // If we hit the "Nothing to deploy" require, it's fine, just skip
+    if (error.reason && error.reason.includes("Nothing to deploy")) {
+        console.log('[KITE] Yield buffer full, nothing to deploy.');
+        return null;
+    }
+    console.error("[KITE] deployToYield failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+/**
+ * Recall USDC from Lucid yield back to vault
+ */
+async function recallFromYield(usdcAmount) {
+  try {
+    const parsedUsdc = ethers.parseUnits(usdcAmount.toString(), 6);
+    console.log(`[KITE] Recalling ${usdcAmount} USDC from yield...`);
+    const tx = await getVault().recallFromYield(parsedUsdc);
+    const receipt = await tx.wait();
+    console.log('[KITE] Recalled from yield:', receipt.hash);
+    return receipt.hash;
+  } catch (error) {
+    console.error("[KITE] recallFromYield failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+/**
+ * Listen for OfframpInitiated events on Kite chain to trigger Bitnob payouts
+ */
+function listenForOfframps(callback) {
+  getVault().on('OfframpInitiated', (orderIdBytes32, user, usdcAmount, event) => {
+    // orderIdBytes32 is a keccak256 hash. We normally store a map of hash -> string in the DB
+    // but for this hackathon we might just pass the hash as the reference
+    callback({
+      orderId: orderIdBytes32,
+      user,
+      usdcAmount: ethers.formatUnits(usdcAmount, 6),
+      txHash: event.log.transactionHash,
+    });
+  });
+  console.log('[KITE] Listening for offramp events on vault...');
+}
+
+module.exports = { settleOnramp, settleCheckout, deployToYield, recallFromYield, listenForOfframps };
