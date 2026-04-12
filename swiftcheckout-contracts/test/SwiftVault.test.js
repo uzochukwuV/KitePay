@@ -94,7 +94,8 @@ describe("SwiftVault on Kite Mainnet Fork", function () {
             expect(userBalAfter - userBalBefore).to.equal(usdcAmount);
             expect(vaultBalBefore - vaultBalAfter).to.equal(usdcAmount);
 
-            const isSettled = await vault.isOrderSettled(orderId);
+            const namespacedOrderId = ethers.keccak256(ethers.solidityPacked(["string", "bytes32"], ["ONRAMP", orderId]));
+            const isSettled = await vault.isOrderSettled(namespacedOrderId);
             expect(isSettled).to.be.true;
         });
 

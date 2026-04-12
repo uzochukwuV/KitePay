@@ -24,10 +24,37 @@ function getVault() {
 }
 
 /**
+ * Check liquid balance and recall from yield if necessary
+ */
+async function ensureLiquidity(requiredUsdcAmount) {
+  try {
+    const required = ethers.parseUnits(requiredUsdcAmount.toString(), 6);
+    const liquidBal = await getVault().liquidBalance();
+    
+    if (liquidBal < required) {
+      // Add a 5% buffer to prevent exact-amount withdrawal slippage causing revert
+      const shortfall = required - liquidBal;
+      const amountToRecall = (shortfall * 105n) / 100n;
+
+      console.log(`[KITE] JIT Liquidity: Vault short by ${ethers.formatUnits(shortfall, 6)} USDC. Recalling ${ethers.formatUnits(amountToRecall, 6)} from yield...`);
+      
+      const tx = await getVault().recallFromYield(amountToRecall);
+      await tx.wait();
+      console.log(`[KITE] JIT Liquidity: Successfully recalled USDC.`);
+    }
+  } catch (error) {
+    console.error("[KITE] ensureLiquidity failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+/**
  * Release USDC from vault to user (onramp settlement)
  */
 async function settleOnramp(orderId, userAddress, usdcAmount, ngnAmount) {
   try {
+    await ensureLiquidity(usdcAmount);
+
     const orderIdBytes32 = ethers.id(orderId);
     
     // usdcAmount is expected to be a number (e.g. 10.50). We parse it to 6 decimals for USDC
@@ -55,6 +82,8 @@ async function settleOnramp(orderId, userAddress, usdcAmount, ngnAmount) {
  */
 async function settleCheckout(orderId, merchantAddress, usdcAmount, ngnAmount) {
   try {
+    await ensureLiquidity(usdcAmount);
+
     const orderIdBytes32 = ethers.id(orderId);
     const parsedUsdc = ethers.parseUnits(usdcAmount.toString(), 6);
 

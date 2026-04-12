@@ -95,12 +95,13 @@ contract SwiftVault is Ownable, ReentrancyGuard, Pausable {
         uint256 usdcAmount,
         uint256 /* ngnAmount */ // kept for API compatibility but not stored to save gas
     ) external onlyOperator nonReentrant whenNotPaused {
-        require(!isOrderSettled[orderId], "Order already settled");
+        bytes32 namespacedOrderId = keccak256(abi.encodePacked("ONRAMP", orderId));
+        require(!isOrderSettled[namespacedOrderId], "Order already settled");
         require(user != address(0), "Invalid user");
         require(usdcAmount > 0, "Amount must be > 0");
         require(liquidBalance() >= usdcAmount, "Insufficient vault liquidity");
 
-        isOrderSettled[orderId] = true;
+        isOrderSettled[namespacedOrderId] = true;
 
         usdc.safeTransfer(user, usdcAmount);
         emit OnrampSettled(orderId, user, usdcAmount);
@@ -116,10 +117,11 @@ contract SwiftVault is Ownable, ReentrancyGuard, Pausable {
         bytes32 orderId,
         uint256 usdcAmount
     ) external nonReentrant whenNotPaused {
-        require(!isOrderSettled[orderId], "Order ID already used");
+        bytes32 namespacedOrderId = keccak256(abi.encodePacked("OFFRAMP", orderId));
+        require(!isOrderSettled[namespacedOrderId], "Order ID already used");
         require(usdcAmount > 0, "Amount must be > 0");
 
-        isOrderSettled[orderId] = true;
+        isOrderSettled[namespacedOrderId] = true;
 
         uint256 fee = (usdcAmount * feeBps) / 10000;
         uint256 netAmount = usdcAmount - fee;
@@ -145,11 +147,12 @@ contract SwiftVault is Ownable, ReentrancyGuard, Pausable {
         uint256 usdcAmount,
         uint256 /* ngnAmount */ // kept for API compatibility but not stored to save gas
     ) external onlyOperator nonReentrant whenNotPaused {
+        bytes32 namespacedOrderId = keccak256(abi.encodePacked("CHECKOUT", orderId));
         require(merchants[merchant], "Merchant not registered");
-        require(!isOrderSettled[orderId], "Order already settled");
+        require(!isOrderSettled[namespacedOrderId], "Order already settled");
         require(liquidBalance() >= usdcAmount, "Insufficient vault liquidity");
 
-        isOrderSettled[orderId] = true;
+        isOrderSettled[namespacedOrderId] = true;
 
         uint256 fee = (usdcAmount * feeBps) / 10000;
         uint256 netAmount = usdcAmount - fee;
