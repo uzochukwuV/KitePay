@@ -51,8 +51,10 @@ contract SwiftVault is Ownable, ReentrancyGuard, Pausable {
     event YieldDeployed(uint256 amount);
     event YieldRecalled(uint256 amount);
     event MerchantRegistered(address indexed merchant);
+    event MerchantDeregistered(address indexed merchant);
     event OperatorUpdated(address indexed newOperator);
     event FeeRecipientUpdated(address indexed newFeeRecipient);
+    event LUsdcUpdated(address indexed newLUsdc);
 
     // ─── Modifiers ───────────────────────────────────────────────────────────
 
@@ -162,7 +164,7 @@ contract SwiftVault is Ownable, ReentrancyGuard, Pausable {
             usdc.safeTransfer(feeRecipient, fee);
         }
 
-        emit CheckoutSettled(orderId, merchant, netAmount);
+        emit CheckoutSettled(orderId, merchant, usdcAmount);
     }
 
     // ─── Yield Management ────────────────────────────────────────────────────
@@ -196,6 +198,7 @@ contract SwiftVault is Ownable, ReentrancyGuard, Pausable {
      */
     function recallFromYield(uint256 amount) external onlyOperator nonReentrant {
         require(amount > 0, "Amount must be > 0");
+        require(amount <= lUsdc.balanceOf(address(this)), "Insufficient yield balance");
 
         uint256 liquidBalBefore = usdc.balanceOf(address(this));
 
@@ -228,6 +231,11 @@ contract SwiftVault is Ownable, ReentrancyGuard, Pausable {
         emit MerchantRegistered(merchant);
     }
 
+    function deregisterMerchant(address merchant) external onlyOwner {
+        merchants[merchant] = false;
+        emit MerchantDeregistered(merchant);
+    }
+
     function setOperator(address _operator) external onlyOwner {
         require(_operator != address(0), "Operator cannot be zero address");
         operator = _operator;
@@ -238,6 +246,12 @@ contract SwiftVault is Ownable, ReentrancyGuard, Pausable {
         require(_feeRecipient != address(0), "Fee recipient cannot be zero address");
         feeRecipient = _feeRecipient;
         emit FeeRecipientUpdated(_feeRecipient);
+    }
+
+    function setLUsdc(address _lUsdc) external onlyOwner {
+        require(_lUsdc != address(0), "L-USDC address cannot be zero");
+        lUsdc = IERC20(_lUsdc);
+        emit LUsdcUpdated(_lUsdc);
     }
 
     function setBufferBps(uint256 _bps) external onlyOwner {
@@ -260,6 +274,10 @@ contract SwiftVault is Ownable, ReentrancyGuard, Pausable {
      */
     function emergencyWithdraw(address token, address to) external onlyOwner {
         require(to != address(0), "Cannot withdraw to zero address");
+        require(token != address(0), "Token cannot be zero address");
+        if (token == address(lUsdc)) {
+            require(paused(), "Pause before withdrawing L-USDC");
+        }
         uint256 balance = IERC20(token).balanceOf(address(this));
         require(balance > 0, "No tokens to withdraw");
         IERC20(token).safeTransfer(to, balance);
