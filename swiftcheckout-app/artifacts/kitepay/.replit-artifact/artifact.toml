@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "KitePay"
+version = "1.0.0"
+id = "artifacts/kitepay"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 19798
+
+[services.development]
+run = "pnpm --filter @workspace/kitepay run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/kitepay", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/kitepay", "run", "serve" ]
+
+[services.env]
+PORT = "19798"
+BASE_PATH = "/"

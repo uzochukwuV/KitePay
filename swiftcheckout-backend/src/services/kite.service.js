@@ -145,17 +145,40 @@ async function recallFromYield(usdcAmount) {
  * Listen for OfframpInitiated events on Kite chain to trigger Bitnob payouts
  */
 function listenForOfframps(callback) {
-  getVault().on('OfframpInitiated', (orderIdBytes32, user, usdcAmount, event) => {
-    // orderIdBytes32 is a keccak256 hash. We normally store a map of hash -> string in the DB
-    // but for this hackathon we might just pass the hash as the reference
-    callback({
-      orderId: orderIdBytes32,
-      user,
-      usdcAmount: ethers.formatUnits(usdcAmount, 6),
-      txHash: event.log.transactionHash,
-    });
-  });
-  console.log('[KITE] Listening for offramp events on vault...');
+  // Use a polling interval instead of .on() to avoid WebSockets/Filter disconnects on testnets
+  const vault = getVault();
+  const filter = vault.filters.OfframpInitiated();
+  
+  let lastBlock = 'latest';
+
+  const pollEvents = async () => {
+    try {
+      if (lastBlock === 'latest') {
+        lastBlock = await vault.runner.provider.getBlockNumber();
+      }
+
+      const currentBlock = await vault.runner.provider.getBlockNumber();
+      if (currentBlock > lastBlock) {
+        const events = await vault.queryFilter(filter, lastBlock + 1, currentBlock);
+        
+        for (const event of events) {
+          const { args } = event;
+          callback({
+            orderId: args[0], // orderIdBytes32
+            user: args[1],
+            usdcAmount: ethers.formatUnits(args[2], 6),
+            txHash: event.transactionHash,
+          });
+        }
+        lastBlock = currentBlock;
+      }
+    } catch (error) {
+      console.error('[KITE] Polling error:', error.message);
+    }
+  };
+
+  setInterval(pollEvents, 5000); // Poll every 5 seconds
+  console.log('[KITE] Polling for offramp events on vault...');
 }
 
 module.exports = { settleOnramp, settleCheckout, deployToYield, recallFromYield, listenForOfframps };

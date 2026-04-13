@@ -1,0 +1,171 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /onramp/initiate:
+    post:
+      operationId: initiateOnramp
+      tags: [onramp]
+      summary: Start an Onramp (NGN -> USDC)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                kiteWallet:
+                  type: string
+                ngnAmount:
+                  type: number
+              required: [kiteWallet, ngnAmount]
+      responses:
+        "200":
+          description: Onramp initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                  usdcEstimate:
+                    type: string
+                  instructions:
+                    type: object
+                    properties:
+                      bankName: { type: string }
+                      accountNumber: { type: string }
+                      accountName: { type: string }
+                      amount: { type: number }
+                      reference: { type: string }
+
+  /offramp/initiate:
+    post:
+      operationId: initiateOfframp
+      tags: [offramp]
+      summary: Start an Offramp (USDC -> NGN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usdcAmount:
+                  type: number
+                bankAccountNumber:
+                  type: string
+                bankName:
+                  type: string
+                accountName:
+                  type: string
+              required: [usdcAmount, bankAccountNumber, bankName, accountName]
+      responses:
+        "200":
+          description: Offramp initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                  vaultAddress:
+                    type: string
+                  usdcAmount:
+                    type: number
+                  ngnEstimate:
+                    type: string
+                  instructions:
+                    type: string
+
+  /checkout/initiate:
+    post:
+      operationId: initiateCheckout
+      tags: [checkout]
+      summary: Start a POS Checkout (NGN -> USDC)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                merchantKiteWallet:
+                  type: string
+                ngnAmount:
+                  type: number
+              required: [merchantKiteWallet, ngnAmount]
+      responses:
+        "200":
+          description: Checkout initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                  usdcEstimate:
+                    type: string
+                  instructions:
+                    type: object
+                    properties:
+                      bankName: { type: string }
+                      accountNumber: { type: string }
+                      accountName: { type: string }
+                      amount: { type: number }
+                      reference: { type: string }
+
+  /vault/stats:
+    get:
+      operationId: getVaultStats
+      tags: [vault]
+      summary: Get vault statistics
+      responses:
+        "200":
+          description: Vault stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tvl: { type: string }
+                  liquidBalance: { type: string }
+                  yieldBalance: { type: string }
+                  status: { type: string }
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+

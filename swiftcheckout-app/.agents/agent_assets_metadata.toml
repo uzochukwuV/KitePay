@@ -1,0 +1,14 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "SZnJGKcanPBv8kfGaDBAo"
+uri = "file://artifacts/kitepay/assets/images/icon.png"
+type = "image"
+title = "kitepay app icon"
+
+[[generated]]
+id = "eJGPIsB4uhIPoMd8mNylr"
+uri = "file://artifacts/kitepay/assets/images/splash.png"
+type = "image"
+title = "kitepay splash screen"
