@@ -11,12 +11,78 @@ const { x402Required } = require('./middleware/x402.middleware');
 const app = express();
 app.use(cors());
 
+// Validation helpers
+function isValidEthereumAddress(address) {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
+
+function validateAmount(amount, fieldName, min = 0.01, max = 1000000) {
+  const num = parseFloat(amount);
+  if (isNaN(num) || num < min || num > max) {
+    throw new Error(`${fieldName} must be a number between ${min} and ${max}`);
+  }
+  return num;
+}
+
 // Temporary in-memory DB for Hackathon
 const DB = {
   orders: {}, // id -> { type, amount, status, userKiteWallet, etc. }
   orderHashes: {}, // keccak256(orderId) -> original orderId (UUID)
   processedWebhooks: new Map() // eventId -> status ('in_progress' or 'settled')
 };
+
+// Retry queue for failed offramp payouts
+const payoutRetryQueue = new Map(); // orderId -> { order, attempts, lastAttempt }
+const MAX_PAYOUT_RETRIES = 5;
+const PAYOUT_RETRY_DELAY_MS = 60000; // 1 minute between retries
+
+async function retryFailedPayouts() {
+  const now = Date.now();
+  
+  for (const [orderId, retryData] of payoutRetryQueue.entries()) {
+    // Skip if we haven't waited long enough since last attempt
+    if (now - retryData.lastAttempt < PAYOUT_RETRY_DELAY_MS) {
+      continue;
+    }
+
+    // Skip if max retries exceeded
+    if (retryData.attempts >= MAX_PAYOUT_RETRIES) {
+      console.error(`[PAYOUT] Max retries (${MAX_PAYOUT_RETRIES}) exceeded for offramp ${orderId}. Manual intervention required.`);
+      payoutRetryQueue.delete(orderId);
+      continue;
+    }
+
+    retryData.attempts++;
+    retryData.lastAttempt = now;
+
+    try {
+      console.log(`[PAYOUT] Retry attempt ${retryData.attempts}/${MAX_PAYOUT_RETRIES} for offramp ${orderId}...`);
+      
+      await bitnobService.payoutNGN({
+        reference: orderId,
+        recipientName: retryData.order.bankDetails.accountName,
+        accountNumber: retryData.order.bankDetails.accountNumber,
+        bankName: retryData.order.bankDetails.bankName,
+        ngnAmount: retryData.order.ngnAmount
+      });
+
+      // Success - mark order as settled and remove from queue
+      retryData.order.status = 'settled';
+      payoutRetryQueue.delete(orderId);
+      console.log(`[PAYOUT] Retry successful for offramp ${orderId}`);
+    } catch (payoutError) {
+      console.error(`[PAYOUT] Retry ${retryData.attempts} failed for ${orderId}:`, payoutError.message);
+      
+      if (retryData.attempts >= MAX_PAYOUT_RETRIES) {
+        retryData.order.status = 'payout_failed';
+        console.error(`[PAYOUT] Offramp ${orderId} marked as failed after ${MAX_PAYOUT_RETRIES} retries`);
+      }
+    }
+  }
+}
+
+// Start retry queue processor
+setInterval(retryFailedPayouts, 10000).unref();
 
 function verifySignature(payload, signature, secret) {
   const payloadString = typeof payload === 'string' ? payload : payload.toString();
@@ -144,17 +210,24 @@ app.use(express.json());
 app.post('/api/onramp/initiate', async (req, res) => {
   try {
     const { kiteWallet, ngnAmount } = req.body;
-    
+
+    // Validate inputs
+    if (!kiteWallet || !isValidEthereumAddress(kiteWallet)) {
+      return res.status(400).json({ error: 'Invalid kiteWallet address. Must be a valid Ethereum address.' });
+    }
+
+    const validatedNgnAmount = validateAmount(ngnAmount, 'ngnAmount', 100, 10000000);
+
     // 1. Get Rate
-    const rate = await bitnobService.getRate(ngnAmount);
-    const usdcAmount = rate.usdcPerNgn * ngnAmount;
+    const rate = await bitnobService.getRate(validatedNgnAmount);
+    const usdcAmount = rate.usdcPerNgn * validatedNgnAmount;
 
     // 2. Generate Order
     const orderId = uuidv4();
     DB.orders[orderId] = {
       type: 'onramp',
       kiteWallet,
-      ngnAmount,
+      ngnAmount: validatedNgnAmount,
       usdcAmount: usdcAmount.toFixed(2), // store 2 decimal representation
       status: 'pending'
     };
@@ -168,7 +241,7 @@ app.post('/api/onramp/initiate', async (req, res) => {
         bankName: "Sandbox Bank",
         accountNumber: "0123456789",
         accountName: "SwiftCheckout Onramp",
-        amount: ngnAmount,
+        amount: validatedNgnAmount,
         reference: orderId
       }
     });
@@ -188,19 +261,21 @@ app.post(
   }),
   async (req, res) => {
     try {
-      const { merchantId, usdcAmount } = req.body;
-      const orderId = req.paymentData.nonce;
+      const { merchantWallet, usdcAmount } = req.body;
 
-      // In a real app we would link merchantId to their Kite wallet address from DB
-      // We will mock this to a random generated wallet instead of address(0) to prevent on-chain reverts
-      const dummyMerchantWallet = "0x1111111111111111111111111111111111111111";
+      // Validate merchant wallet address
+      if (!merchantWallet || !/^0x[a-fA-F0-9]{40}$/.test(merchantWallet)) {
+        return res.status(400).json({ error: 'Invalid or missing merchant wallet address' });
+      }
+
+      const orderId = req.paymentData.nonce;
 
       // The payment has already been verified and settled by the x402 middleware.
       // We just need to trigger the vault to release funds to the merchant.
       const txHash = await kiteService.settleCheckout(
-        orderId, 
-        dummyMerchantWallet, 
-        usdcAmount || "1", 
+        orderId,
+        merchantWallet, // Use actual merchant wallet from request
+        usdcAmount || "1",
         0 // ngnAmount is 0 since this is a pure USDC payment
       );
 
@@ -215,10 +290,25 @@ app.post(
 app.post('/api/offramp/initiate', async (req, res) => {
   try {
     const { usdcAmount, bankAccountNumber, bankName, accountName } = req.body;
-    
+
+    // Validate inputs
+    const validatedUsdcAmount = validateAmount(usdcAmount, 'usdcAmount', 0.01, 100000);
+
+    if (!bankAccountNumber || !/^\d{10}$/.test(bankAccountNumber)) {
+      return res.status(400).json({ error: 'Invalid bankAccountNumber. Must be a 10-digit number.' });
+    }
+
+    if (!bankName || typeof bankName !== 'string' || bankName.trim().length === 0) {
+      return res.status(400).json({ error: 'bankName is required.' });
+    }
+
+    if (!accountName || typeof accountName !== 'string' || accountName.trim().length === 0) {
+      return res.status(400).json({ error: 'accountName is required.' });
+    }
+
     // 1. Get Rate
     const rate = await bitnobService.getRate();
-    const ngnEstimate = rate.ngnPerUsdc * usdcAmount;
+    const ngnEstimate = rate.ngnPerUsdc * validatedUsdcAmount;
 
     // 2. Generate Order
     const orderId = uuidv4();
@@ -227,7 +317,7 @@ app.post('/api/offramp/initiate', async (req, res) => {
 
     DB.orders[orderId] = {
       type: 'offramp',
-      usdcAmount,
+      usdcAmount: validatedUsdcAmount,
       ngnAmount: ngnEstimate.toFixed(0),
       bankDetails: {
         accountNumber: bankAccountNumber,
@@ -241,7 +331,7 @@ app.post('/api/offramp/initiate', async (req, res) => {
     res.json({
       orderId,
       vaultAddress: process.env.VAULT_ADDRESS,
-      usdcAmount,
+      usdcAmount: validatedUsdcAmount,
       ngnEstimate: ngnEstimate.toFixed(0),
       instructions: "Call initiateOfframp(orderId, usdcAmount) on the SwiftVault contract to complete this transaction."
     });
@@ -255,14 +345,21 @@ app.post('/api/checkout/initiate', async (req, res) => {
   try {
     const { merchantKiteWallet, ngnAmount } = req.body;
 
-    const rate = await bitnobService.getRate(ngnAmount);
-    const usdcAmount = rate.usdcPerNgn * ngnAmount;
+    // Validate inputs
+    if (!merchantKiteWallet || !isValidEthereumAddress(merchantKiteWallet)) {
+      return res.status(400).json({ error: 'Invalid merchantKiteWallet address. Must be a valid Ethereum address.' });
+    }
+
+    const validatedNgnAmount = validateAmount(ngnAmount, 'ngnAmount', 100, 10000000);
+
+    const rate = await bitnobService.getRate(validatedNgnAmount);
+    const usdcAmount = rate.usdcPerNgn * validatedNgnAmount;
 
     const orderId = uuidv4();
     DB.orders[orderId] = {
       type: 'checkout',
       merchantKiteWallet,
-      ngnAmount,
+      ngnAmount: validatedNgnAmount,
       usdcAmount: usdcAmount.toFixed(2),
       status: 'pending'
     };
@@ -275,7 +372,7 @@ app.post('/api/checkout/initiate', async (req, res) => {
         bankName: "Sandbox Bank",
         accountNumber: "0987654321",
         accountName: "SwiftCheckout Merchant",
-        amount: ngnAmount,
+        amount: validatedNgnAmount,
         reference: orderId
       }
     });
@@ -287,12 +384,145 @@ app.post('/api/checkout/initiate', async (req, res) => {
 // API: Vault Stats
 app.get('/api/vault/stats', async (req, res) => {
   try {
-    // In reality you would query the contract here, but we will mock it if ethers is not initialized
+    // Query real on-chain data
+    const stats = await kiteService.getVaultStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('[VAULT] Failed to get vault stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Get Order Status
+app.get('/api/order/:orderId', (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = DB.orders[orderId];
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
     res.json({
-      tvl: "10000.00",
-      liquidBalance: "2000.00",
-      yieldBalance: "8000.00",
-      status: "active"
+      orderId,
+      ...order
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Check if order is settled on-chain
+app.get('/api/order/:orderId/onchain-status', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = DB.orders[orderId];
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const orderType = order.type === 'onramp' ? 'ONRAMP' : 
+                      order.type === 'offramp' ? 'OFFRAMP' : 'CHECKOUT';
+    
+    const isSettled = await kiteService.isOrderSettledOnChain(orderId, orderType);
+
+    res.json({
+      orderId,
+      localStatus: order.status,
+      isSettledOnChain: isSettled,
+      orderType
+    });
+  } catch (error) {
+    console.error('[ORDER] Failed to get on-chain status:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Get Merchant Info
+app.get('/api/merchant/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+
+    if (!isValidEthereumAddress(address)) {
+      return res.status(400).json({ error: 'Invalid Ethereum address' });
+    }
+
+    const merchantInfo = await kiteService.getMerchantInfo(address);
+    res.json(merchantInfo);
+  } catch (error) {
+    console.error('[MERCHANT] Failed to get merchant info:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Get Token Balance
+app.get('/api/balance/:tokenAddress/:ownerAddress', async (req, res) => {
+  try {
+    const { tokenAddress, ownerAddress } = req.params;
+
+    if (!isValidEthereumAddress(tokenAddress)) {
+      return res.status(400).json({ error: 'Invalid token address' });
+    }
+
+    if (!isValidEthereumAddress(ownerAddress)) {
+      return res.status(400).json({ error: 'Invalid owner address' });
+    }
+
+    const balance = await kiteService.getTokenBalance(tokenAddress, ownerAddress);
+    res.json(balance);
+  } catch (error) {
+    console.error('[BALANCE] Failed to get token balance:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Get Offramp Retry Queue Status
+app.get('/api/admin/retry-queue', (req, res) => {
+  try {
+    const queueStatus = {
+      totalPending: payoutRetryQueue.size,
+      orders: []
+    };
+
+    for (const [orderId, retryData] of payoutRetryQueue.entries()) {
+      queueStatus.orders.push({
+        orderId,
+        attempts: retryData.attempts,
+        maxRetries: MAX_PAYOUT_RETRIES,
+        lastAttempt: new Date(retryData.lastAttempt).toISOString(),
+        orderStatus: retryData.order.status,
+        ngnAmount: retryData.order.ngnAmount
+      });
+    }
+
+    res.json(queueStatus);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Get All Orders (Admin)
+app.get('/api/admin/orders', (req, res) => {
+  try {
+    const { status, type } = req.query;
+    
+    let orders = Object.entries(DB.orders).map(([id, data]) => ({
+      orderId: id,
+      ...data
+    }));
+
+    if (status) {
+      orders = orders.filter(o => o.status === status);
+    }
+
+    if (type) {
+      orders = orders.filter(o => o.type === type);
+    }
+
+    res.json({
+      total: orders.length,
+      orders
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -303,11 +533,29 @@ app.get('/api/vault/stats', async (req, res) => {
 app.post('/api/merchant/register', async (req, res) => {
   try {
     const { merchantWallet } = req.body;
-    // Call vault.registerMerchant(merchantWallet) via kiteService
-    // For now we just return success
-    res.json({ success: true, message: `Merchant ${merchantWallet} registered on-chain.` });
+
+    // Validate merchant wallet address
+    if (!merchantWallet || !/^0x[a-fA-F0-9]{40}$/.test(merchantWallet)) {
+      return res.status(400).json({ error: 'Invalid or missing merchant wallet address. Must be a valid Ethereum address.' });
+    }
+
+    // Check if already registered
+    const isRegistered = await kiteService.isMerchantRegistered(merchantWallet);
+    if (isRegistered) {
+      return res.status(400).json({ error: `Merchant ${merchantWallet} is already registered.` });
+    }
+
+    // Register merchant on-chain
+    const txHash = await kiteService.registerMerchant(merchantWallet);
+
+    res.json({ 
+      success: true, 
+      message: `Merchant ${merchantWallet} registered on-chain.`,
+      txHash
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[MERCHANT] Registration failed:', error);
+    res.status(500).json({ error: error.message || 'Merchant registration failed' });
   }
 });
 
@@ -330,7 +578,7 @@ app.listen(PORT, () => {
   try {
     kiteService.listenForOfframps(async (offrampData) => {
       console.log('[KITE] Detected offramp on-chain:', offrampData);
-      
+
       const originalOrderId = DB.orderHashes[offrampData.orderId];
       if (!originalOrderId) {
         console.error(`[KITE] Unrecognized offramp hash: ${offrampData.orderId}`);
@@ -348,6 +596,11 @@ app.listen(PORT, () => {
         return;
       }
 
+      if (order.status === 'payout_failed') {
+        console.error(`[KITE] Offramp ${originalOrderId} previously failed. Skipping.`);
+        return;
+      }
+
       try {
         console.log(`[BITNOB] Triggering fiat payout for offramp ${originalOrderId}...`);
         await bitnobService.payoutNGN({
@@ -357,11 +610,19 @@ app.listen(PORT, () => {
           bankName: order.bankDetails.bankName,
           ngnAmount: order.ngnAmount
         });
-        
+
         order.status = 'settled';
         console.log(`[BITNOB] Payout successful for ${originalOrderId}.`);
       } catch (payoutError) {
         console.error(`[BITNOB] Payout failed for ${originalOrderId}:`, payoutError.message);
+        
+        // Add to retry queue instead of silently failing
+        console.warn(`[BITNOB] Adding offramp ${originalOrderId} to retry queue...`);
+        payoutRetryQueue.set(originalOrderId, {
+          order,
+          attempts: 0,
+          lastAttempt: Date.now()
+        });
       }
     });
   } catch (err) {

@@ -1,13 +1,28 @@
 {
   "name": "swiftcheckout-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "SwiftCheckout - NGN/USDC payment gateway backend for Kite blockchain",
+  "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon src/index.js",
+    "test": "node runTests.js all",
+    "test:functions": "node runTests.js functions",
+    "test:webhook": "node runTests.js webhook",
+    "test:integration": "node runTests.js integration",
+    "test:recall": "node test_recall.js",
+    "test:webhook-standalone": "node test_webhook.js",
+    "test:integration-standalone": "node testIntegration.js"
   },
-  "keywords": [],
+  "keywords": [
+    "payment",
+    "gateway",
+    "kite",
+    "blockchain",
+    "usdc",
+    "ngn",
+    "bitnob"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -18,5 +33,8 @@
     "ethers": "^6.16.0",
     "express": "^5.2.1",
     "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }

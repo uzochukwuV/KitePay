@@ -4,10 +4,18 @@ const { ethers } = require('ethers');
 const SwiftVaultABI = [
   "function settleOnramp(bytes32 orderId, address user, uint256 usdcAmount, uint256 ngnAmount) external",
   "function settleCheckout(bytes32 orderId, address merchant, uint256 usdcAmount, uint256 ngnAmount) external",
+  "function registerMerchant(address merchant) external",
+  "function merchants(address) public view returns (bool)",
+  "function isOrderSettled(bytes32) public view returns (bool)",
   "function deployToYield() external",
   "function recallFromYield(uint256 amount) external",
   "function liquidBalance() public view returns (uint256)",
+  "function yieldBalance() public view returns (uint256)",
+  "function totalTVL() public view returns (uint256)",
   "function bufferBps() public view returns (uint256)",
+  "function feeBps() public view returns (uint256)",
+  "function operator() public view returns (address)",
+  "function feeRecipient() public view returns (address)",
   "event OfframpInitiated(bytes32 indexed orderId, address indexed user, uint256 usdcAmount)"
 ];
 
@@ -142,6 +150,34 @@ async function recallFromYield(usdcAmount) {
 }
 
 /**
+ * Register a merchant on-chain
+ */
+async function registerMerchant(merchantAddress) {
+  try {
+    console.log(`[KITE] Registering merchant ${merchantAddress}...`);
+    const tx = await getVault().registerMerchant(merchantAddress);
+    const receipt = await tx.wait();
+    console.log('[KITE] Merchant registered:', receipt.hash);
+    return receipt.hash;
+  } catch (error) {
+    console.error("[KITE] registerMerchant failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+/**
+ * Check if a merchant is registered
+ */
+async function isMerchantRegistered(merchantAddress) {
+  try {
+    return await getVault().merchants(merchantAddress);
+  } catch (error) {
+    console.error("[KITE] isMerchantRegistered failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+/**
  * Listen for OfframpInitiated events on Kite chain to trigger Bitnob payouts
  */
 function listenForOfframps(callback) {
@@ -181,4 +217,114 @@ function listenForOfframps(callback) {
   console.log('[KITE] Polling for offramp events on vault...');
 }
 
-module.exports = { settleOnramp, settleCheckout, deployToYield, recallFromYield, listenForOfframps };
+/**
+ * Get comprehensive vault statistics
+ */
+async function getVaultStats() {
+  try {
+    const vaultContract = getVault();
+    
+    const [liquidBal, yieldBal, tvl, bufferBps, feeBps, operator, feeRecipient] = await Promise.all([
+      vaultContract.liquidBalance(),
+      vaultContract.yieldBalance(),
+      vaultContract.totalTVL(),
+      vaultContract.bufferBps(),
+      vaultContract.feeBps(),
+      vaultContract.operator(),
+      vaultContract.feeRecipient()
+    ]);
+
+    return {
+      liquidBalance: ethers.formatUnits(liquidBal, 6),
+      yieldBalance: ethers.formatUnits(yieldBal, 6),
+      totalTVL: ethers.formatUnits(tvl, 6),
+      bufferBps: Number(bufferBps),
+      bufferPercentage: `${(Number(bufferBps) / 100).toFixed(1)}%`,
+      feeBps: Number(feeBps),
+      feePercentage: `${(Number(feeBps) / 100).toFixed(2)}%`,
+      operator,
+      feeRecipient
+    };
+  } catch (error) {
+    console.error("[KITE] getVaultStats failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+/**
+ * Check if an order has been settled on-chain
+ */
+async function isOrderSettledOnChain(orderId, orderType) {
+  try {
+    const namespacedOrderId = ethers.keccak256(
+      ethers.solidityPacked(["string", "string"], [orderType, orderId])
+    );
+    return await getVault().isOrderSettled(namespacedOrderId);
+  } catch (error) {
+    console.error("[KITE] isOrderSettledOnChain failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+/**
+ * Get merchant information
+ */
+async function getMerchantInfo(merchantAddress) {
+  try {
+    const isRegistered = await getVault().merchants(merchantAddress);
+    return {
+      address: merchantAddress,
+      isRegistered,
+      registeredAt: isRegistered ? "Check events for exact timestamp" : null
+    };
+  } catch (error) {
+    console.error("[KITE] getMerchantInfo failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+/**
+ * Get ERC20 token balance for any address
+ */
+async function getTokenBalance(tokenAddress, ownerAddress) {
+  try {
+    const provider = getVault().runner.provider;
+    const erc20ABI = [
+      "function balanceOf(address) view returns (uint256)",
+      "function decimals() view returns (uint8)",
+      "function symbol() view returns (string)"
+    ];
+    
+    const token = new ethers.Contract(tokenAddress, erc20ABI, provider);
+    const [balance, decimals, symbol] = await Promise.all([
+      token.balanceOf(ownerAddress),
+      token.decimals(),
+      token.symbol()
+    ]);
+
+    return {
+      address: ownerAddress,
+      tokenAddress,
+      symbol,
+      balance: ethers.formatUnits(balance, decimals),
+      rawBalance: balance.toString()
+    };
+  } catch (error) {
+    console.error("[KITE] getTokenBalance failed:", error.reason || error.message);
+    throw error;
+  }
+}
+
+module.exports = { 
+  settleOnramp, 
+  settleCheckout, 
+  registerMerchant, 
+  isMerchantRegistered, 
+  deployToYield, 
+  recallFromYield, 
+  listenForOfframps,
+  getVaultStats,
+  isOrderSettledOnChain,
+  getMerchantInfo,
+  getTokenBalance
+};
