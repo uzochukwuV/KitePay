@@ -1,0 +1,1293 @@
+{
+	"info": {
+		"_postman_id": "fb23e43c-1e54-48f7-8671-7980ec099576",
+		"name": "BITNOB API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "25931498"
+	},
+	"item": [
+		{
+			"name": "Transactions",
+			"item": [
+				{
+					"name": "Get Transactions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/transactions",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"transactions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Transaction By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/transactions/c103b12c-9374-48a8-877b-0aa4471e7f5d",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"transactions",
+								"c103b12c-9374-48a8-877b-0aa4471e7f5d"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Wallets",
+			"item": [
+				{
+					"name": "Get Wallest",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/wallets",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"wallets"
+							],
+							"query": [
+								{
+									"key": null,
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Transfer",
+			"item": [
+				{
+					"name": "Initiate Transfer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/transfers",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"transfers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Finalize Transfer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/transfers/finalize",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"transfers",
+								"finalize"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Customers",
+			"item": [
+				{
+					"name": "Create Customers",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"email\": \"jane@example.com\",\n  \"phone\": \"08123456789\",\n  \"countryCode\": \"+234\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/customers",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"customers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Customer",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Christian\",\n  \"lastName\": \"Arthur\",\n  \"email\": \"chris@gmail.com\",\n  \"phone\": \"08123456789\",\n  \"countryCode\": \"+234\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/customers/379de0fe-dc09-41f0-a4e8-c3d3745e2077",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"customers",
+								"379de0fe-dc09-41f0-a4e8-c3d3745e2077"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Blacklist customer",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/customers/blacklist/379de0fe-dc09-41f0-a4e8-c3d3745e2077",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"customers",
+								"blacklist",
+								"379de0fe-dc09-41f0-a4e8-c3d3745e2077"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get customer",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/customers",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"customers"
+							],
+							"query": [
+								{
+									"key": "page%3D1%26limit%3D20%26email%3em@gmail.com",
+									"value": null,
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Address",
+			"item": [
+				{
+					"name": "GET Address",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/addresses",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"addresses"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Address By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/addresses/2ada3fae-3370-42e5-924c-7831d0f2120a",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"addresses",
+								"2ada3fae-3370-42e5-924c-7831d0f2120a"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"address\": \"\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/addresses/validate",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"addresses",
+								"validate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Generate Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"customerEmail\": \"chris@gmail.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/addresses/generate",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"addresses",
+								"generate"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Cards",
+			"item": [
+				{
+					"name": "Register Card User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customerEmail\": \"jane@example.com\",\n  \"idNumber\": \"A1234567891\",\n  \"idType\": \"PASSPORT\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"country\": \"Nigeria\",\n  \"phoneNumber\": \"+2348012345678\",\n  \"city\": \"Lagos\",\n  \"state\": \"Lagos\",\n  \"zipCode\": \"100001\",\n  \"line1\": \"123 Banana Island Rd\",\n  \"houseName\": \"Sunset Apartments\",\n  \"bvn\": \"1234567890111\",\n  \"userPhoto\": \"https://example.com/photos/john.jpg\",\n  \"dateOfBirth\": \"1990-01-01\",\n  \"idImage\": \"https://example.com/ids/john_passport.jpg\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/virtual-cards/registercarduser",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtual-cards",
+								"registercarduser"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Card User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response status code is 400\", function () {",
+									"    pm.expect(pm.response.code).to.eql(400);",
+									"});",
+									"",
+									"",
+									"pm.test(\"Response time is less than 200ms\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(200);",
+									"});",
+									"",
+									"",
+									"pm.test(\"Response has required fields\", function () {",
+									"    const responseData = pm.response.json();",
+									"    ",
+									"    pm.expect(responseData).to.be.an('object');",
+									"    pm.expect(responseData).to.have.all.keys('message', 'statusCode', 'path', 'timestamp');",
+									"});",
+									"",
+									"",
+									"pm.test(\"Message is a non-empty string\", function () {",
+									"    const responseData = pm.response.json();",
+									"",
+									"    pm.expect(responseData).to.be.an('object');",
+									"    pm.expect(responseData.message).to.exist.and.to.be.an('array').that.is.not.empty;",
+									"",
+									"    responseData.message.forEach(msg => {",
+									"        pm.expect(msg).to.be.a('string').that.is.not.empty;",
+									"    });",
+									"});",
+									"",
+									"",
+									"pm.test(\"StatusCode is a valid integer\", function () {",
+									"    const responseData = pm.response.json();",
+									"    ",
+									"    pm.expect(responseData).to.be.an('object');",
+									"    pm.expect(responseData.statusCode).to.exist.and.to.be.a('number').and.to.satisfy(Number.isInteger, \"StatusCode should be an integer\");",
+									"});",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "",
+								"value": "",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"phoneNumber\": \"+233501234567\",\n  \"country\": \"Ghana\",\n  \"state\": \"Greater Accra\",\n  \"city\": \"Accra\",\n  \"zipCode\": \"233\",\n  \"line1\": \"blue light line\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/virtual-cards/users/75709708-bd5b-442d-bbc2-bce325a80b26",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtual-cards",
+								"users",
+								"75709708-bd5b-442d-bbc2-bce325a80b26"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create card",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"customerEmail\": \"jane@example.com\",\n    \"cardBrand\": \"visa\",\n    \"cardType\": \"virtual\",\n    \"amount\": 300,\n    \"reference\": \"gift\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/virtualcards/create",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtualcards",
+								"create"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Fetch Card User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/virtualcards/cards/fab06b35-8940-4a02-98e7-9dd2efb16abb",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtualcards",
+								"cards",
+								"fab06b35-8940-4a02-98e7-9dd2efb16abb"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Transactions On Card",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/virtualcards/cards/fab06b35-8940-4a02-98e7-9dd2efb16abb/transactions",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtualcards",
+								"cards",
+								"fab06b35-8940-4a02-98e7-9dd2efb16abb",
+								"transactions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Card Transactions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/virtualcards/transactions",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtualcards",
+								"transactions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Card Withdrawal",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\":400,\n    \"cardId\":\"7c495813-8bdc-4803-b1f2-8b37c55aa7b1\",\n    \"reference\":\"gift\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/virtualcards/withdraw",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtualcards",
+								"withdraw"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Freeze Card",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cardId\":\"fab06b35-8940-4a02-98e7-9dd2efb16abb\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/virtualcards/freeze",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtualcards",
+								"freeze"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Unfreeze Card",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cardId\":\"fab06b35-8940-4a02-98e7-9dd2efb16abb\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/virtualcards/unfreeze",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtualcards",
+								"unfreeze"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mock Transaction",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\":100,\n    \"cardId\":\"fab06b35-8940-4a02-98e7-9dd2efb16abb\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/virtualcards/mock-transaction",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtualcards",
+								"mock-transaction"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Terminate Card",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cardId\":\"fab06b35-8940-4a02-98e7-9dd2efb16abb\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/virtualcards/terminate",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtualcards",
+								"terminate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Enable Airline Payment",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cardId\":\"fab06b35-8940-4a02-98e7-9dd2efb16abb\",\n    \"isAirlinePaymentEnabled\":true\n  }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/virtualcards/enable-airlines",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"virtualcards",
+								"enable-airlines"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payout",
+			"item": [
+				{
+					"name": "Payouts Quote",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"source\": \"onchain\",\n  \"fromAsset\": \"usdt\",\n  \"toCurrency\": \"ngn\",\n  \"chain\": \"polygon\",\n  \"amount\": 20000\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/payouts/quotes",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"payouts",
+								"quotes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Initialize Payout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": " {\n    \"quoteId\": \"QT_121995\",\n    \"customerId\": \"uuid string\",\n    \"country\": \"NG\",\n    \"reference\": \"ref_QT_OF_RM-123\",\n    \"beneficiary\": {\n      \"type\": \"BANK\",\n      \"bankCode\": \"110072\",\n      \"accountNumber\": \"1421795566\"\n    },\n    \"paymentReason\": \"Funds for stuff\",\n    \"callbackUrl\": \"https://example.com/callback/id\",\n    \"clientMetaData\": {\n      \"name\": \"john doe\",\n      \"height\": \"194\"\n    }\n  }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/payouts/initialize",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"payouts",
+								"initialize"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Finalize Payouts",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"quoteId\": \"QT_121995\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/payouts/finalize",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"payouts",
+								"finalize"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Simulate Address Deposit",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"address\": \"0x8b425fa3ae405c54f1fcaa16b1981c173b66a2e8\",\n  \"amount\": 200\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/payouts/simulate-address-deposit",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"payouts",
+								"simulate-address-deposit"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Payout",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"address\": \"0x8b425fa3ae405c54f1fcaa16b1981c173b66a2e8\",\n  \"amount\": 200\n}"
+						},
+						"url": {
+							"raw": "{{api_url}}/payouts",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"payouts"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payout By Quote ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/payouts/quotes/QT_121995",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"payouts",
+								"quotes",
+								"QT_121995"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payout By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/payouts/fetch/4d808ea1-0d16-419c-b545-881821c3e904",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"payouts",
+								"fetch",
+								"4d808ea1-0d16-419c-b545-881821c3e904"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payout By Reference",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/payouts/fetch/reference/ref_QT_OF_RM-123",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"payouts",
+								"fetch",
+								"reference",
+								"ref_QT_OF_RM-123"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payout Country",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/payouts/supported-countries-requirement/Kenya",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"payouts",
+								"supported-countries-requirement",
+								"Kenya"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Trade",
+			"item": [
+				{
+					"name": "Initialize Trading",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n \"amount\":1000\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/trade",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"trade"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Finalize Trade",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"quoteId\": \"\",\n    \"amount\": 1000,\n    \"reference\": \"\"\n  }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/trade/finalize",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"trade",
+								"finalize"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Lightning",
+			"item": [
+				{
+					"name": "Create Lightning Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\": \"l\",\n    \"satoshis\": 100\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/wallets/ln/createinvoice",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"wallets",
+								"ln",
+								"createinvoice"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Initialize  Lightning Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n        \"request\": \"lnbc1u1p5vrrclpp5v8r3wxjrsmsrxmdnrrz9qrky7jllhfyyunvdk0fzwna9t0w596zqdqzdscqzzsxqyz5vqsp5anvttve45fc6nkf80fqerlwxxde2ws2sztltekf0fyywzwxjgaps9qxpqysgq0dy9k88xgz4rw3uh6cnrf5x6j07kkx3v6le3lkwzd4fl3ncdxrdxwe8qxwpy3y3syjxlpl2gyttu5eajn6u4qr2wa8usywmftff6rkgqkhc8ve\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/wallets/ln/initiatepayment",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"wallets",
+								"ln",
+								"initiatepayment"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Pay lightning  Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"request\": \"lnbc1u1p5vrrclpp5v8r3wxjrsmsrxmdnrrz9qrky7jllhfyyunvdk0fzwna9t0w596zqdqzdscqzzsxqyz5vqsp5anvttve45fc6nkf80fqerlwxxde2ws2sztltekf0fyywzwxjgaps9qxpqysgq0dy9k88xgz4rw3uh6cnrf5x6j07kkx3v6le3lkwzd4fl3ncdxrdxwe8qxwpy3y3syjxlpl2gyttu5eajn6u4qr2wa8usywmftff6rkgqkhc8ve\",\n  \"customerEmail\": \"customer@email.com\",\n  \"transactionPin\":\"146151\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{api_url}}/wallets/ln/pay",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"wallets",
+								"ln",
+								"pay"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Decode Lightning Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{api_url}}/lightning/decode",
+							"host": [
+								"{{api_url}}"
+							],
+							"path": [
+								"lightning",
+								"decode"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
