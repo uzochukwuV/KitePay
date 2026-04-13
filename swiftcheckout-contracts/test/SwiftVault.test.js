@@ -147,7 +147,7 @@ describe("SwiftVault on Kite Mainnet Fork", function () {
 
             await expect(vault.connect(operator).settleCheckout(orderId, merchant.address, usdcAmount, ngnAmount))
                 .to.emit(vault, "CheckoutSettled")
-                .withArgs(orderId, merchant.address, netAmount);
+                .withArgs(orderId, merchant.address, usdcAmount);
 
             const merchantBalAfter = await usdc.balanceOf(merchant.address);
             const feeRecipientBalAfter = await usdc.balanceOf(feeRecipient.address);
