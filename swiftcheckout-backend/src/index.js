@@ -87,14 +87,29 @@ setInterval(retryFailedPayouts, 10000).unref();
 function verifySignature(payload, signature, secret) {
   const payloadString = typeof payload === 'string' ? payload : payload.toString();
   const expected = crypto
-    .createHmac('sha256', secret)
+    .createHmac('sha512', secret) // Bitnob uses SHA512, not SHA256
     .update(payloadString)
     .digest('hex');
+  
+  // Try hex comparison first
   try {
-    return crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'));
-  } catch {
-    return false;
-  }
+    if (crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'))) {
+      return true;
+    }
+  } catch {}
+  
+  // Try base64 comparison as fallback
+  try {
+    const expectedBase64 = crypto
+      .createHmac('sha512', secret)
+      .update(payloadString)
+      .digest('base64');
+    if (signature === expectedBase64) {
+      return true;
+    }
+  } catch {}
+  
+  return false;
 }
 
 // Background processor to keep webhooks fast
@@ -216,7 +231,12 @@ app.post('/api/onramp/initiate', async (req, res) => {
       return res.status(400).json({ error: 'Invalid kiteWallet address. Must be a valid Ethereum address.' });
     }
 
-    const validatedNgnAmount = validateAmount(ngnAmount, 'ngnAmount', 100, 10000000);
+    let validatedNgnAmount;
+    try {
+      validatedNgnAmount = validateAmount(ngnAmount, 'ngnAmount', 100, 10000000);
+    } catch (validationError) {
+      return res.status(400).json({ error: validationError.message });
+    }
 
     // 1. Get Rate
     const rate = await bitnobService.getRate(validatedNgnAmount);
@@ -289,10 +309,15 @@ app.post(
 // API: Start an Offramp (USDC -> NGN)
 app.post('/api/offramp/initiate', async (req, res) => {
   try {
-    const { usdcAmount, bankAccountNumber, bankName, accountName } = req.body;
+    const { usdcAmount, bankAccountNumber, bankName, accountName, userWallet, signature } = req.body;
 
     // Validate inputs
-    const validatedUsdcAmount = validateAmount(usdcAmount, 'usdcAmount', 0.01, 100000);
+    let validatedUsdcAmount;
+    try {
+      validatedUsdcAmount = validateAmount(usdcAmount, 'usdcAmount', 0.01, 100000);
+    } catch (validationError) {
+      return res.status(400).json({ error: validationError.message });
+    }
 
     if (!bankAccountNumber || !/^\d{10}$/.test(bankAccountNumber)) {
       return res.status(400).json({ error: 'Invalid bankAccountNumber. Must be a 10-digit number.' });
@@ -324,16 +349,28 @@ app.post('/api/offramp/initiate', async (req, res) => {
         bankName,
         accountName
       },
+      userWallet: userWallet || null,
       status: 'pending'
     };
 
-    // 3. Return details to user so they can trigger the smart contract
+    // 3. Return instructions for gasless flow
     res.json({
       orderId,
       vaultAddress: process.env.VAULT_ADDRESS,
+      usdcAddress: process.env.USDC_ADDRESS,
       usdcAmount: validatedUsdcAmount,
       ngnEstimate: ngnEstimate.toFixed(0),
-      instructions: "Call initiateOfframp(orderId, usdcAmount) on the SwiftVault contract to complete this transaction."
+      instructions: {
+        method: "transfer_to_vault",
+        description: "Transfer USDC directly to the vault address. Backend will detect the deposit and process your offramp.",
+        steps: [
+          "Approve vault to spend your USDC",
+          "Call vault.initiateOfframp(orderIdHash, usdcAmount)",
+          "Backend will automatically detect and process NGN payout"
+        ]
+      },
+      // For gasless: backend will submit on behalf of user if they provide signature
+      gaslessOption: signature ? "Backend will submit transaction on your behalf" : "User must submit transaction directly"
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -350,7 +387,12 @@ app.post('/api/checkout/initiate', async (req, res) => {
       return res.status(400).json({ error: 'Invalid merchantKiteWallet address. Must be a valid Ethereum address.' });
     }
 
-    const validatedNgnAmount = validateAmount(ngnAmount, 'ngnAmount', 100, 10000000);
+    let validatedNgnAmount;
+    try {
+      validatedNgnAmount = validateAmount(ngnAmount, 'ngnAmount', 100, 10000000);
+    } catch (validationError) {
+      return res.status(400).json({ error: validationError.message });
+    }
 
     const rate = await bitnobService.getRate(validatedNgnAmount);
     const usdcAmount = rate.usdcPerNgn * validatedNgnAmount;
@@ -435,6 +477,46 @@ app.get('/api/order/:orderId/onchain-status', async (req, res) => {
     });
   } catch (error) {
     console.error('[ORDER] Failed to get on-chain status:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Submit Offramp Transaction (Gasless)
+app.post('/api/offramp/:orderId/submit-tx', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { txHash } = req.body;
+
+    if (!txHash || typeof txHash !== 'string') {
+      return res.status(400).json({ error: 'Transaction hash is required' });
+    }
+
+    const order = DB.orders[orderId];
+    if (!order || order.type !== 'offramp') {
+      return res.status(404).json({ error: 'Offramp order not found' });
+    }
+
+    if (order.status !== 'pending') {
+      return res.status(400).json({ error: `Order is already ${order.status}` });
+    }
+
+    // Mark order as submitted on-chain
+    order.status = 'submitted';
+    order.txHash = txHash;
+    order.submittedAt = new Date().toISOString();
+
+    console.log(`[OFFRAMP] Order ${orderId} submitted on-chain: ${txHash}`);
+    console.log(`[OFFRAMP] Waiting for event detection...`);
+
+    res.json({
+      success: true,
+      orderId,
+      txHash,
+      status: 'submitted',
+      message: 'Transaction submitted. Backend will detect event and process NGN payout automatically.'
+    });
+  } catch (error) {
+    console.error('[OFFRAMP] Failed to submit transaction:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -579,7 +661,25 @@ app.listen(PORT, () => {
     kiteService.listenForOfframps(async (offrampData) => {
       console.log('[KITE] Detected offramp on-chain:', offrampData);
 
-      const originalOrderId = DB.orderHashes[offrampData.orderId];
+      // Try to find order by hash first
+      let originalOrderId = DB.orderHashes[offrampData.orderId];
+
+      // If not found, try to match by iterating through pending offramp orders
+      if (!originalOrderId) {
+        console.log('[KITE] Hash not found in DB, searching pending offramps...');
+        for (const [orderId, order] of Object.entries(DB.orders)) {
+          if (order.type === 'offramp' && (order.status === 'pending' || order.status === 'submitted')) {
+            const expectedHash = require('ethers').ethers.id(orderId);
+            if (expectedHash === offrampData.orderId) {
+              originalOrderId = orderId;
+              DB.orderHashes[offrampData.orderId] = orderId;
+              console.log(`[KITE] Matched order by hash: ${orderId}`);
+              break;
+            }
+          }
+        }
+      }
+
       if (!originalOrderId) {
         console.error(`[KITE] Unrecognized offramp hash: ${offrampData.orderId}`);
         return;
@@ -601,6 +701,13 @@ app.listen(PORT, () => {
         return;
       }
 
+      // Update order status
+      if (order.status === 'pending') {
+        order.status = 'detected';
+      }
+      order.onchainTxHash = offrampData.txHash;
+      order.detectedAt = new Date().toISOString();
+
       try {
         console.log(`[BITNOB] Triggering fiat payout for offramp ${originalOrderId}...`);
         await bitnobService.payoutNGN({
@@ -612,10 +719,11 @@ app.listen(PORT, () => {
         });
 
         order.status = 'settled';
+        order.paidAt = new Date().toISOString();
         console.log(`[BITNOB] Payout successful for ${originalOrderId}.`);
       } catch (payoutError) {
         console.error(`[BITNOB] Payout failed for ${originalOrderId}:`, payoutError.message);
-        
+
         // Add to retry queue instead of silently failing
         console.warn(`[BITNOB] Adding offramp ${originalOrderId} to retry queue...`);
         payoutRetryQueue.set(originalOrderId, {

@@ -1,0 +1,7 @@
+
+> swiftcheckout-backend@1.0.0 start
+> node src/index.js
+
+◇ injected env (12) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+[SERVER] SwiftCheckout backend listening on port 8080
+[KITE] Polling for offramp events on vault...

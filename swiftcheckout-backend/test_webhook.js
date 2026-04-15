@@ -8,6 +8,9 @@ const WEBHOOK_SECRET = process.env.BITNOB_WEBHOOK_SECRET || "whsec_test_secret_f
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 const WEBHOOK_URL = `${BASE_URL}/api/webhooks/bitnob`;
 
+console.log('Using WEBHOOK_SECRET:', WEBHOOK_SECRET);
+console.log('Using BASE_URL:', BASE_URL);
+
 const results = {
   passed: 0,
   failed: 0,
@@ -30,22 +33,22 @@ function logTest(name, status, details = '') {
 function generateSignature(payload) {
   const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload);
   return crypto
-    .createHmac('sha256', WEBHOOK_SECRET)
+    .createHmac('sha512', WEBHOOK_SECRET) // Bitnob uses SHA512, not SHA256
     .update(payloadString)
     .digest('hex');
 }
 
 async function sendWebhook(eventPayload, customSignature = null) {
   const payloadString = JSON.stringify(eventPayload);
-  const signature = customSignature || generateSignature(payloadString);
+  const signature = customSignature || generateSignature(eventPayload);
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-bitnob-signature': signature  // Always add the signature header
+  };
 
   try {
-    const res = await axios.post(WEBHOOK_URL, payloadString, {
-      headers: {
-        'Content-Type': 'application/json',
-        'x-bitnob-signature': signature,
-      }
-    });
+    const res = await axios.post(WEBHOOK_URL, payloadString, { headers });
     return { success: true, status: res.status, data: res.data };
   } catch (error) {
     return { 
@@ -66,11 +69,11 @@ async function createTestOrder(type = 'onramp') {
     };
 
     if (type === 'onramp') {
-      orderData.kiteWallet = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb';
+      orderData.kiteWallet = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1';
       orderData.ngnAmount = 50000;
       orderData.usdcAmount = 33.33;
     } else if (type === 'checkout') {
-      orderData.merchantKiteWallet = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb';
+      orderData.merchantKiteWallet = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1';
       orderData.ngnAmount = 75000;
       orderData.usdcAmount = 50.00;
     } else if (type === 'offramp') {
@@ -133,7 +136,7 @@ async function runTests() {
   logTest(
     'Valid webhook signature',
     res1.success ? 'PASS' : 'FAIL',
-    res1.success ? `Status: ${res1.status}` : res1.data
+    res1.success ? `Status: ${res1.status}` : JSON.stringify(res1.data)
   );
 
   // Test 2: Idempotency check
@@ -158,13 +161,20 @@ async function runTests() {
 
   // Test 4: Missing signature
   console.log("\n4. Testing missing signature...");
-  const res4 = await sendWebhook(mockEvent, null);
-  const isMissingRejected = !res4.success && res4.status === 401;
-  logTest(
-    'Missing signature rejected',
-    isMissingRejected ? 'PASS' : 'FAIL',
-    isMissingRejected ? 'Missing signature correctly blocked' : `Status: ${res4.status}`
-  );
+  try {
+    const res4 = await axios.post(WEBHOOK_URL, JSON.stringify(mockEvent), {
+      headers: { 'Content-Type': 'application/json' }
+      // No x-bitnob-signature header
+    });
+    logTest('Missing signature rejected', 'FAIL', 'Should have returned 401');
+  } catch (error) {
+    const isRejected = error.response?.status === 401;
+    logTest(
+      'Missing signature rejected',
+      isRejected ? 'PASS' : 'FAIL',
+      isRejected ? 'Missing signature correctly blocked' : `Status: ${error.response?.status}`
+    );
+  }
 
   // Test 5: Create orders via API
   console.log("\n--- Order Creation Tests ---");
@@ -199,7 +209,7 @@ async function runTests() {
   console.log("\n8. Testing invalid wallet address...");
   try {
     await axios.post(`${BASE_URL}/api/onramp/initiate`, {
-      kiteWallet: 'invalid_address',
+      kiteWallet: 'invalid_address_not_even_close',
       ngnAmount: 50000
     });
     logTest('Invalid wallet rejected', 'FAIL', 'Request should have been rejected');
@@ -215,12 +225,12 @@ async function runTests() {
   console.log("\n9. Testing invalid amount (negative)...");
   try {
     await axios.post(`${BASE_URL}/api/onramp/initiate`, {
-      kiteWallet: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+      kiteWallet: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1',
       ngnAmount: -100
     });
     logTest('Invalid amount rejected', 'FAIL', 'Request should have been rejected');
   } catch (error) {
-    const isRejected = error.response?.status === 500;
+    const isRejected = error.response?.status === 400;
     logTest(
       'Invalid amount rejected',
       isRejected ? 'PASS' : 'FAIL',
